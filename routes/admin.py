@@ -152,6 +152,12 @@ def export_xml():
             min_votes = int(request.form.get('min_votes', 1))
             include_stats = request.form.get('include_stats') == 'on'
 
+            # Get consensus filter from form (multiple checkboxes)
+            consensus_filter = request.form.getlist('consensus_types')
+            # If empty list, set to None (export all)
+            if not consensus_filter:
+                consensus_filter = None
+
             # Validate confidence
             if not 0 <= confidence <= 1:
                 flash('Confidence threshold must be between 0 and 1', 'danger')
@@ -164,13 +170,20 @@ def export_xml():
 
             # Generate filename with timestamp
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f'classification_export_{timestamp}.xml'
+
+            # Add consensus filter to filename if specified
+            if consensus_filter:
+                consensus_str = '_'.join(sorted(consensus_filter)).upper()
+                filename = f'classification_export_{consensus_str}_{timestamp}.xml'
+            else:
+                filename = f'classification_export_{timestamp}.xml'
+
             filepath = os.path.join(tempfile.gettempdir(), filename)
 
             # Export using xml_exporter utility
             from utils.xml_exporter import export_to_file
 
-            export_to_file(filepath, confidence, min_votes, include_stats)
+            export_to_file(filepath, confidence, min_votes, include_stats, consensus_filter)
 
             # Send file
             return send_file(

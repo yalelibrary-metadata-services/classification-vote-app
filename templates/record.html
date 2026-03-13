@@ -83,10 +83,23 @@
     </div>
 </div>
 
-<h2>Notes Classification & Review</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Notes Classification & Review</h2>
+    <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="hideVotedNotesToggle">
+        <label class="form-check-label" for="hideVotedNotesToggle">
+            Hide notes I've voted on
+        </label>
+    </div>
+</div>
+
+<div id="hiddenNotesAlert" class="alert alert-info" style="display: none;">
+    <i class="fas fa-eye-slash"></i> <span id="hiddenNotesCount">0</span> note(s) hidden.
+    <a href="#" id="showAllNotes" class="alert-link">Show all notes</a>
+</div>
 
 {% for note in record.notes %}
-<div class="card mb-3 note-card" data-note-index="{{ note.index }}">
+<div class="card mb-3 note-card" data-note-index="{{ note.index }}" data-user-voted="{{ 'true' if note.user_vote else 'false' }}">
     <div class="card-body">
         <div class="row">
             <div class="col-md-6">
@@ -95,6 +108,11 @@
                     {% if note.identical_count > 1 %}
                         <span class="badge bg-info ms-2" title="This exact note appears in {{ note.identical_count }} records">
                             <i class="fas fa-copy"></i> {{ note.identical_count }} identical
+                        </span>
+                    {% endif %}
+                    {% if note.user_vote and note.user_needs_review %}
+                        <span class="badge bg-warning ms-2" title="Your vote is incomplete - please select O or W">
+                            Needs Review
                         </span>
                     {% endif %}
                 </h6>
@@ -136,6 +154,13 @@
                                 <span class="badge bg-warning text-dark">CONTENTIOUS</span>
                             {% endif %}
                         </small>
+                        <br>
+                        <small class="text-muted mt-2">
+                            <strong>Component Breakdown:</strong><br>
+                            Has O: {{ note.distribution.component_breakdown.o_percentage }}% ({{ note.distribution.component_breakdown.o_count }} votes)<br>
+                            Has W: {{ note.distribution.component_breakdown.w_percentage }}% ({{ note.distribution.component_breakdown.w_count }} votes)<br>
+                            Has A: {{ note.distribution.component_breakdown.a_percentage }}% ({{ note.distribution.component_breakdown.a_count }} votes)
+                        </small>
                     {% else %}
                         <small class="text-warning"><strong>No votes yet</strong> - be the first to classify!</small>
                     {% endif %}
@@ -145,17 +170,48 @@
                 </div>
             </div>
             <div class="col-md-3">
-                <div class="classification-buttons">
+                <div class="classification-selection">
                     <h6 class="mb-2">Your Classification</h6>
-                    <div class="btn-group-vertical w-100" role="group">
-                        <button type="button" class="btn btn-{{ 'info' if note.user_vote == 'w' else 'outline-info' }} btn-sm vote-btn" data-classification="w">Work (W)</button>
-                        <button type="button" class="btn btn-{{ 'warning' if note.user_vote == 'o' else 'outline-warning' }} btn-sm vote-btn" data-classification="o">Object (O)</button>
-                        <button type="button" class="btn btn-{{ 'success' if note.user_vote == 'a' else 'outline-success' }} btn-sm vote-btn" data-classification="a">Administrative (A)</button>
-                        <button type="button" class="btn btn-{{ 'secondary' if note.user_vote == 'ow' else 'outline-secondary' }} btn-sm vote-btn" data-classification="ow">Object/Work (OW)</button>
-                        <button type="button" class="btn btn-{{ 'dark' if note.user_vote == 'aw' else 'outline-dark' }} btn-sm vote-btn" data-classification="aw">Administrative/Work (AW)</button>
-                        <button type="button" class="btn btn-{{ 'primary' if note.user_vote == 'ao' else 'outline-primary' }} btn-sm vote-btn" data-classification="ao">Administrative/Object (AO)</button>
-                        <button type="button" class="btn btn-{{ 'danger' if note.user_vote == '?' else 'outline-danger' }} btn-sm vote-btn" data-classification="?">Unknown (?)</button>
+
+                    <!-- O/W checkboxes (at least one required) -->
+                    <div class="form-check">
+                        <input class="form-check-input classification-checkbox" type="checkbox"
+                               id="check_o_{{ note.index }}" value="o"
+                               {{ 'checked' if note.user_vote and 'o' in note.user_vote else '' }}>
+                        <label class="form-check-label" for="check_o_{{ note.index }}">
+                            <span class="badge bg-warning">O</span> Object (physical description)
+                        </label>
                     </div>
+                    <div class="form-check">
+                        <input class="form-check-input classification-checkbox" type="checkbox"
+                               id="check_w_{{ note.index }}" value="w"
+                               {{ 'checked' if note.user_vote and 'w' in note.user_vote else '' }}>
+                        <label class="form-check-label" for="check_w_{{ note.index }}">
+                            <span class="badge bg-info">W</span> Work (content related)
+                        </label>
+                    </div>
+
+                    <!-- A checkbox (optional) -->
+                    <div class="form-check mt-2">
+                        <input class="form-check-input classification-checkbox" type="checkbox"
+                               id="check_a_{{ note.index }}" value="a"
+                               {{ 'checked' if note.user_vote and 'a' in note.user_vote else '' }}>
+                        <label class="form-check-label" for="check_a_{{ note.index }}">
+                            <span class="badge bg-success">A</span> Administrative (optional)
+                        </label>
+                    </div>
+
+                    <!-- Submit button (disabled if neither O nor W checked) -->
+                    <button type="button" class="btn btn-primary btn-sm mt-3 submit-vote-btn w-100">
+                        Submit Classification
+                    </button>
+
+                    <!-- Incomplete vote warning -->
+                    {% if note.user_vote and note.user_needs_review %}
+                    <div class="alert alert-warning alert-sm mt-3 py-2" role="alert">
+                        <small>⚠️ Your vote is incomplete - please select O or W</small>
+                    </div>
+                    {% endif %}
 
                     {% if note.identical_count > 1 %}
                     <div class="mt-3 p-2 bg-light border rounded">
@@ -174,6 +230,15 @@
                         </small>
                     </div>
                     {% endif %}
+
+                    <!-- Find Similar Notes button -->
+                    <button type="button" class="btn btn-outline-info btn-sm mt-3 find-similar-btn w-100"
+                            data-note-text="{{ note.text }}">
+                        <i class="fas fa-search"></i> Find Similar Notes
+                    </button>
+                    <small class="text-muted d-block mt-1">
+                        <i class="fas fa-info-circle"></i> Find notes that are mostly the same (85%+ similar)
+                    </small>
 
                     <div class="vote-status mt-2" style="display: none;">
                         <div class="spinner-border spinner-border-sm" role="status">
@@ -243,21 +308,134 @@
                     <span class="badge bg-white text-info me-2">⏳</span>
                     Next Pending Review
                 </a>
-                <a href="{{ url_for('main.next_unknown', current_bib=record.bib) }}" class="btn btn-danger">
-                    <span class="badge bg-white text-danger me-2">?</span>
-                    Next Unknown
-                </a>
             </div>
             <small class="text-muted d-block mt-3">
                 <strong>No Votes:</strong> Notes with no votes at all<br>
-                <strong>Pending Review:</strong> Notes that others have voted on but you haven't<br>
-                <strong>Unknown:</strong> Notes with "?" as the consensus classification
+                <strong>Pending Review:</strong> Notes that others have voted on but you haven't
             </small>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for similar notes selection -->
+<div class="modal fade" id="similarNotesModal" tabindex="-1" aria-labelledby="similarNotesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="similarNotesModalLabel">Similar Notes Found</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <strong>Original Note:</strong><br>
+                    <span id="originalNoteText" class="small"></span>
+                </div>
+
+                <p class="text-muted mb-3">
+                    <strong>Select which notes to apply your classification to:</strong><br>
+                    <small>These notes are at least 85% similar based on their text content.</small>
+                </p>
+
+                <div id="similarNotesLoading" style="display: none;" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Searching...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Searching for similar notes...</p>
+                </div>
+
+                <div id="similarNotesList">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <div id="similarNotesEmpty" style="display: none;" class="alert alert-warning">
+                    <i class="fas fa-info-circle"></i> No similar notes found at 85% threshold.
+                    <br><small>Try the "Vote on all identical notes" checkbox for exact matches.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="me-auto">
+                    <span class="badge bg-primary" id="selectedCount">0</span>
+                    <span class="text-muted ms-1">notes selected</span>
+                </div>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="applyToSimilarBtn">
+                    Apply Classification
+                </button>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
 const BIB_ID = '{{ record.bib }}';
+
+// ===== HIDE VOTED NOTES FUNCTIONALITY =====
+
+// Load saved preference from localStorage
+const hideVotedToggle = document.getElementById('hideVotedNotesToggle');
+const hiddenNotesAlert = document.getElementById('hiddenNotesAlert');
+const hiddenNotesCount = document.getElementById('hiddenNotesCount');
+const showAllNotesLink = document.getElementById('showAllNotes');
+
+// Load saved preference
+const savedPreference = localStorage.getItem('hideVotedNotes');
+if (savedPreference === 'true') {
+    hideVotedToggle.checked = true;
+    applyHideVotedFilter();
+}
+
+// Toggle event listener
+hideVotedToggle.addEventListener('change', function() {
+    // Save preference
+    localStorage.setItem('hideVotedNotes', this.checked);
+
+    if (this.checked) {
+        applyHideVotedFilter();
+    } else {
+        showAllNotesCards();
+    }
+});
+
+// "Show all notes" link in alert
+showAllNotesLink.addEventListener('click', function(e) {
+    e.preventDefault();
+    hideVotedToggle.checked = false;
+    localStorage.setItem('hideVotedNotes', 'false');
+    showAllNotesCards();
+});
+
+function applyHideVotedFilter() {
+    const noteCards = document.querySelectorAll('.note-card');
+    let hiddenCount = 0;
+
+    noteCards.forEach(card => {
+        const userVoted = card.dataset.userVoted === 'true';
+
+        if (userVoted) {
+            card.style.display = 'none';
+            hiddenCount++;
+        } else {
+            card.style.display = 'block';
+        }
+    });
+
+    // Update and show alert if notes are hidden
+    if (hiddenCount > 0) {
+        hiddenNotesCount.textContent = hiddenCount;
+        hiddenNotesAlert.style.display = 'block';
+    } else {
+        hiddenNotesAlert.style.display = 'none';
+    }
+}
+
+function showAllNotesCards() {
+    const noteCards = document.querySelectorAll('.note-card');
+
+    noteCards.forEach(card => {
+        card.style.display = 'block';
+    });
+
+    hiddenNotesAlert.style.display = 'none';
+}
 </script>
 {% endblock %}

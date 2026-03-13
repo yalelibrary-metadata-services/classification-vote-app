@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, session
+from flask import Blueprint, render_template, redirect, url_for, session, flash
 from sqlalchemy.orm import joinedload
 from models import db, Record, Note, Vote
 from auth import login_required
@@ -44,7 +44,11 @@ def record_detail(bib_id):
     notes_data = []
     for note in notes:
         distribution = calculate_vote_distribution(note.id)
-        user_vote = get_user_vote_for_note(user_id, note.id)
+
+        # Get user's vote object (not just classification)
+        user_vote_obj = Vote.query.filter_by(note_id=note.id, user_id=user_id).first()
+        user_vote = user_vote_obj.classification if user_vote_obj else None
+        user_needs_review = user_vote_obj.needs_review if user_vote_obj else False
 
         # Get voters grouped by classification
         votes = Vote.query.filter_by(note_id=note.id).all()
@@ -62,6 +66,7 @@ def record_detail(bib_id):
             'index': note.note_index,
             'distribution': distribution,
             'user_vote': user_vote,
+            'user_needs_review': user_needs_review,
             'voters': voters,
             'identical_count': identical_count
         })
@@ -73,11 +78,11 @@ def record_detail(bib_id):
     prev_record = records[current_index - 1] if current_index and current_index > 0 else None
     next_record = records[current_index + 1] if current_index is not None and current_index < len(records) - 1 else None
 
-    # Calculate user's voting progress
+    # Calculate user's voting progress (exclude incomplete votes)
     total_notes = Note.query.count()
     user_voted_notes = db.session.query(Note.id)\
                                   .join(Vote)\
-                                  .filter(Vote.user_id == user_id)\
+                                  .filter(Vote.user_id == user_id, Vote.needs_review == False)\
                                   .distinct()\
                                   .count()
     user_progress = (user_voted_notes / total_notes * 100) if total_notes > 0 else 0
@@ -160,39 +165,6 @@ def next_unclassified(current_bib):
     return redirect(url_for('main.record_detail', bib_id=current_bib))
 
 
-@main_bp.route('/next-unknown/<current_bib>')
-@login_required
-def next_unknown(current_bib):
-    """Navigate to next record with unknown (?) consensus"""
-    current_record = Record.query.filter_by(bib_id=current_bib).first_or_404()
-
-    # This requires checking consensus for each note, which is expensive
-    # For now, iterate through records after current
-    records = Record.query.filter(Record.bib_id > current_bib)\
-                          .order_by(Record.bib_id).all()
-
-    for record in records:
-        notes = Note.query.filter_by(record_id=record.id).all()
-        for note in notes:
-            dist = calculate_vote_distribution(note.id)
-            if dist['consensus'] == '?':
-                return redirect(url_for('main.record_detail', bib_id=record.bib_id))
-
-    # Wrap around
-    records = Record.query.filter(Record.bib_id < current_bib)\
-                          .order_by(Record.bib_id).all()
-
-    for record in records:
-        notes = Note.query.filter_by(record_id=record.id).all()
-        for note in notes:
-            dist = calculate_vote_distribution(note.id)
-            if dist['consensus'] == '?':
-                return redirect(url_for('main.record_detail', bib_id=record.bib_id))
-
-    # No more unknown records
-    return redirect(url_for('main.record_detail', bib_id=current_bib))
-
-
 @main_bp.route('/next-pending-review/<current_bib>')
 @login_required
 def next_pending_review(current_bib):
@@ -270,4 +242,65 @@ def next_with_other_votes(current_bib):
                     return redirect(url_for('main.record_detail', bib_id=record.bib_id))
 
     # No more notes with others' votes pending user review
+    return redirect(url_for('main.record_detail', bib_id=current_bib))
+
+
+@main_bp.route('/next-my-vote/<current_bib>/<classification>')
+@login_required
+def next_my_vote(current_bib, classification):
+    """Navigate to next record with notes the user voted a specific way"""
+    user_id = session.get('user_id')
+
+    # Validate classification
+    valid_classifications = ['o', 'w', 'ow', 'a', 'ao', 'aw', 'aow']
+    if classification.lower() not in valid_classifications:
+        # Invalid classification - go to index
+        return redirect(url_for('main.index'))
+
+    classification = classification.lower()
+
+    # Handle special case: current_bib = '0' means start from beginning
+    if current_bib == '0':
+        # Find first record with matching user vote
+        records = Record.query.order_by(Record.bib_id).all()
+        for record in records:
+            notes = Note.query.filter_by(record_id=record.id).all()
+            for note in notes:
+                user_vote = Vote.query.filter_by(note_id=note.id, user_id=user_id).first()
+                if user_vote and user_vote.classification.lower() == classification:
+                    return redirect(url_for('main.record_detail', bib_id=record.bib_id))
+
+        # No records found
+        flash(f'No records found where you voted {classification.upper()}', 'info')
+        return redirect(url_for('main.index'))
+
+    # Verify current record exists
+    current_record = Record.query.filter_by(bib_id=current_bib).first()
+    if not current_record:
+        return redirect(url_for('main.index'))
+
+    # Find next record after current with matching user vote
+    records = Record.query.filter(Record.bib_id > current_bib)\
+                          .order_by(Record.bib_id).all()
+
+    for record in records:
+        notes = Note.query.filter_by(record_id=record.id).all()
+        for note in notes:
+            user_vote = Vote.query.filter_by(note_id=note.id, user_id=user_id).first()
+            if user_vote and user_vote.classification.lower() == classification:
+                return redirect(url_for('main.record_detail', bib_id=record.bib_id))
+
+    # Wrap around to beginning
+    records = Record.query.filter(Record.bib_id < current_bib)\
+                          .order_by(Record.bib_id).all()
+
+    for record in records:
+        notes = Note.query.filter_by(record_id=record.id).all()
+        for note in notes:
+            user_vote = Vote.query.filter_by(note_id=note.id, user_id=user_id).first()
+            if user_vote and user_vote.classification.lower() == classification:
+                return redirect(url_for('main.record_detail', bib_id=record.bib_id))
+
+    # No records found with that vote classification - stay on current page
+    flash(f'No records found where you voted {classification.upper()}', 'info')
     return redirect(url_for('main.record_detail', bib_id=current_bib))

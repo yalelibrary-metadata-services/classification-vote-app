@@ -29,7 +29,7 @@ class Record(db.Model):
     bib_id = db.Column(db.String(50), unique=True, nullable=False, index=True)
     title = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     # Import metadata (nullable, for reference only)
     source_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     source_filename = db.Column(db.String(255), nullable=True, index=True)
@@ -74,7 +74,8 @@ class Vote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     note_id = db.Column(db.Integer, db.ForeignKey('notes.id'), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
-    classification = db.Column(db.String(3), nullable=False)  # w, o, a, ow, aw, ao, ?
+    classification = db.Column(db.String(3), nullable=False)  # o, w, ow, ao, aw, aow, ?
+    needs_review = db.Column(db.Boolean, default=False)  # True if vote is incomplete (A only, no O/W)
     voted_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Composite unique constraint (one vote per user per note)
@@ -96,6 +97,7 @@ class Review(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
     approval = db.Column(db.String(1), nullable=False)  # y, n, ?
     reviewed_at = db.Column(db.DateTime, default=datetime.utcnow)
+
 
     # Composite unique constraint (one review per user per note)
     __table_args__ = (

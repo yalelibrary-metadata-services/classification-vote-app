@@ -21,15 +21,15 @@
                         <a class="nav-link" href="{{ url_for('main.index') }}">All Records</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('filters.unknown_records') }}">
-                            <span class="badge bg-danger me-1">?</span>
-                            Unknown
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('filters.pending_review') }}">
                             <span class="badge bg-info me-1">⏳</span>
                             Need Your Vote
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('filters.needs_review') }}">
+                            <span class="badge bg-warning me-1">⚠️</span>
+                            Needs Review
                         </a>
                     </li>
                     <li class="nav-item">
@@ -43,6 +43,36 @@
                             <span class="badge bg-secondary me-1">○</span>
                             Start Unclassified
                         </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarReviewDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="badge bg-primary me-1">🔍</span>
+                            Review My Votes
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarReviewDropdown">
+                            <li><h6 class="dropdown-header">Jump to next note you voted:</h6></li>
+                            <li><a class="dropdown-item" href="#" onclick="navigateToMyVote('o'); return false;">
+                                <span class="badge bg-warning me-2">O</span> Object
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="navigateToMyVote('w'); return false;">
+                                <span class="badge bg-info me-2">W</span> Work
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="navigateToMyVote('ow'); return false;">
+                                <span class="badge bg-secondary me-2">OW</span> Object/Work
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="navigateToMyVote('a'); return false;">
+                                <span class="badge bg-success me-2">A</span> Administrative
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="navigateToMyVote('ao'); return false;">
+                                <span class="badge bg-primary me-2">AO</span> Admin/Object
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="navigateToMyVote('aw'); return false;">
+                                <span class="badge bg-dark me-2">AW</span> Admin/Work
+                            </a></li>
+                            <li><a class="dropdown-item" href="#" onclick="navigateToMyVote('aow'); return false;">
+                                <span class="badge bg-purple me-2">AOW</span> Admin/Object/Work
+                            </a></li>
+                        </ul>
                     </li>
                 </ul>
                 <ul class="navbar-nav">

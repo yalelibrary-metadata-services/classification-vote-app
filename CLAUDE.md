@@ -91,8 +91,8 @@ This is a Flask web application for collaborative multi-user voting on note clas
    - Returns vote distribution, consensus, and voter data
 
 3. **`routes/filters.py`** - Filtered views
-   - `/unknown` - Records with "?" consensus
    - `/pending-review` - Records needing user's vote
+   - `/needs-review` - Records with incomplete votes (A only, no O/W)
    - `/contentious` - Records below consensus threshold
 
 4. **`routes/admin.py`** - Admin interface (requires `@admin_required`)
@@ -141,14 +141,20 @@ This is a Flask web application for collaborative multi-user voting on note clas
 
 ### Classification System
 
-The app supports 7 classification types for manuscript notes:
-- **W** (Work) - Content related to the work itself
+The app uses a multi-select checkbox system where users select components:
 - **O** (Object) - Physical description of the manuscript
-- **A** (Administrative) - Cataloging or processing information
-- **OW** (Object/Work) - Combined physical and content description
-- **AW** (Administrative/Work) - Combined administrative and content information
-- **AO** (Administrative/Object) - Combined administrative and physical information
-- **?** (Unknown) - Classification unclear or uncertain
+- **W** (Work) - Content related to the work itself
+- **A** (Administrative) - Cataloging or processing information (optional)
+
+Valid combinations (stored as consensus):
+- **O** - Object only
+- **W** - Work only
+- **OW** - Object/Work (both O and W selected)
+- **AO** - Administrative/Object (A and O selected)
+- **AW** - Administrative/Work (A and W selected)
+- **AOW** - Administrative/Object/Work (all three selected)
+
+**Note:** At least one of O or W must be selected. A cannot be selected alone.
 
 ### Multi-User Voting Flow
 

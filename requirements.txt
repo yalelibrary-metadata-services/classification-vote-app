@@ -3,3 +3,4 @@ Werkzeug==2.3.7
 Flask-SQLAlchemy==3.0.5
 Flask-Migrate==4.0.5
 gunicorn==21.2.0
+RapidFuzz==3.14.3

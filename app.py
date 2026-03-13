@@ -26,6 +26,15 @@ def create_app(config_class=Config):
         # Initialize database tables if they don't exist
         db.create_all()
 
+        # Build similarity index for fast similar notes search
+        from utils.similarity import rebuild_similarity_index
+        print("Building similarity index...")
+        stats = rebuild_similarity_index()
+        print(f"✓ Similarity index built: {stats['indexed_notes']} notes, "
+              f"{stats['unique_tokens']} unique tokens, "
+              f"{stats['rebuild_time_seconds']}s, "
+              f"{stats['cache_size_mb']} MB")
+
     # Register blueprints
     from auth import auth_bp
     from routes.main import main_bp

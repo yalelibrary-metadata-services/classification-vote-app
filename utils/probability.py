@@ -2,7 +2,7 @@ from collections import Counter
 from models import Vote, Setting
 
 # Classification types in priority order for tie-breaking
-CLASSIFICATION_TYPES = ['w', 'o', 'a', 'ow', 'aw', 'ao', '?']
+CLASSIFICATION_TYPES = ['w', 'o', 'ow', 'aw', 'ao', 'aow']
 
 def calculate_vote_distribution(note_id):
     """
@@ -62,7 +62,50 @@ def calculate_vote_distribution(note_id):
         'probabilities': probabilities,
         'consensus': consensus,
         'consensus_probability': consensus_probability,
-        'is_contentious': is_contentious
+        'is_contentious': is_contentious,
+        'component_breakdown': get_component_breakdown(note_id)
+    }
+
+
+def get_component_breakdown(note_id):
+    """
+    Calculate how many votes include each component (O, W, A).
+
+    Args:
+        note_id: ID of the note to analyze
+
+    Returns:
+        dict with keys:
+            - o_count: Number of votes containing 'o'
+            - w_count: Number of votes containing 'w'
+            - a_count: Number of votes containing 'a'
+            - o_percentage: Percentage of votes with 'o'
+            - w_percentage: Percentage of votes with 'w'
+            - a_percentage: Percentage of votes with 'a'
+    """
+    votes = Vote.query.filter_by(note_id=note_id).all()
+    if not votes:
+        return {
+            'o_count': 0,
+            'w_count': 0,
+            'a_count': 0,
+            'o_percentage': 0,
+            'w_percentage': 0,
+            'a_percentage': 0
+        }
+
+    total = len(votes)
+    o_count = sum(1 for v in votes if 'o' in v.classification.lower())
+    w_count = sum(1 for v in votes if 'w' in v.classification.lower())
+    a_count = sum(1 for v in votes if 'a' in v.classification.lower())
+
+    return {
+        'o_count': o_count,
+        'w_count': w_count,
+        'a_count': a_count,
+        'o_percentage': round((o_count / total) * 100) if total > 0 else 0,
+        'w_percentage': round((w_count / total) * 100) if total > 0 else 0,
+        'a_percentage': round((a_count / total) * 100) if total > 0 else 0,
     }
 
 
@@ -200,7 +243,7 @@ def get_classification_color(classification):
         'ow': 'secondary',
         'aw': 'dark',
         'ao': 'primary',
-        '?': 'danger'
+        'aow': 'purple'
     }
     return colors.get(classification, 'secondary')
 

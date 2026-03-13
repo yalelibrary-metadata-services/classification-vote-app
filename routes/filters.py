@@ -6,42 +6,6 @@ from utils.probability import calculate_vote_distribution
 filters_bp = Blueprint('filters', __name__)
 
 
-@filters_bp.route('/unknown')
-@login_required
-def unknown_records():
-    """Show records with notes where consensus is '?'"""
-
-    unknown_records = []
-    records = Record.query.order_by(Record.bib_id).all()
-
-    for record in records:
-        notes = Note.query.filter_by(record_id=record.id).order_by(Note.note_index).all()
-        unknown_notes = []
-
-        for note in notes:
-            distribution = calculate_vote_distribution(note.id)
-            if distribution['consensus'] == '?':
-                unknown_notes.append({
-                    'text': note.text[:150] + ('...' if len(note.text) > 150 else ''),
-                    'text_full': note.text,
-                    'index': note.note_index,
-                    'distribution': distribution
-                })
-
-        if unknown_notes:
-            unknown_records.append({
-                'bib': record.bib_id,
-                'title': record.title,
-                'unknown_notes': unknown_notes,
-                'total_notes': len(notes),
-                'unknown_count': len(unknown_notes)
-            })
-
-    return render_template('unknown.html',
-                         unknown_records=unknown_records,
-                         total_unknown_records=len(unknown_records))
-
-
 @filters_bp.route('/pending-review')
 @login_required
 def pending_review():
@@ -116,3 +80,44 @@ def contentious_records():
     return render_template('contentious.html',
                          contentious_records=contentious_records,
                          total_contentious_records=len(contentious_records))
+
+
+@filters_bp.route('/needs-review')
+@login_required
+def needs_review():
+    """Show notes where current user's vote needs review (incomplete votes)"""
+    user_id = session.get('user_id')
+
+    needs_review_records = []
+    records = Record.query.order_by(Record.bib_id).all()
+
+    for record in records:
+        notes = Note.query.filter_by(record_id=record.id).order_by(Note.note_index).all()
+        review_notes = []
+
+        for note in notes:
+            # Check if user has incomplete vote
+            user_vote = Vote.query.filter_by(note_id=note.id, user_id=user_id).first()
+
+            if user_vote and user_vote.needs_review:
+                distribution = calculate_vote_distribution(note.id)
+                review_notes.append({
+                    'text': note.text[:150] + ('...' if len(note.text) > 150 else ''),
+                    'text_full': note.text,
+                    'index': note.note_index,
+                    'distribution': distribution,
+                    'current_vote': user_vote.classification
+                })
+
+        if review_notes:
+            needs_review_records.append({
+                'bib': record.bib_id,
+                'title': record.title,
+                'review_notes': review_notes,
+                'total_notes': len(notes),
+                'review_count': len(review_notes)
+            })
+
+    return render_template('needs_review.html',
+                         needs_review_records=needs_review_records,
+                         total_needs_review_records=len(needs_review_records))

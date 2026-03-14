@@ -54,9 +54,10 @@ def record_detail(bib_id):
         votes = Vote.query.filter_by(note_id=note.id).all()
         voters = {}
         for vote in votes:
+            username = vote.user.username if vote.user else 'Unknown'
             if vote.classification not in voters:
                 voters[vote.classification] = []
-            voters[vote.classification].append(vote.user.username)
+            voters[vote.classification].append(username)
 
         # Count identical notes
         identical_count = count_identical_notes(note.text)

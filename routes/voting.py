@@ -83,9 +83,10 @@ def vote():
     votes = Vote.query.filter_by(note_id=note.id).all()
     voters = {}
     for vote in votes:
+        username = vote.user.username if vote.user else 'Unknown'
         if vote.classification not in voters:
             voters[vote.classification] = []
-        voters[vote.classification].append(vote.user.username)
+        voters[vote.classification].append(username)
 
     return jsonify({
         'success': True,

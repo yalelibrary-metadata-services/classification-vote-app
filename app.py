@@ -48,6 +48,15 @@ def create_app(config_class=Config):
     app.register_blueprint(filters_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
+    @app.context_processor
+    def inject_needs_review_count():
+        from flask import session
+        from models import Vote
+        if 'user_id' in session:
+            count = Vote.query.filter_by(user_id=session['user_id'], needs_review=True).count()
+            return {'needs_review_count': count}
+        return {'needs_review_count': 0}
+
     return app
 
 

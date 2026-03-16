@@ -8,7 +8,12 @@
         <h1>Votes Needing Review</h1>
         <p class="text-muted mb-0">Notes where your vote is incomplete and needs to be updated</p>
     </div>
-    <div>
+    <div class="d-flex gap-2">
+        {% if needs_review_records %}
+        <a href="{{ url_for('main.next_my_vote', current_bib='0', classification='a') }}" class="btn btn-warning">
+            Start Reviewing →
+        </a>
+        {% endif %}
         <a href="{{ url_for('main.index') }}" class="btn btn-secondary">← Back to All Records</a>
     </div>
 </div>

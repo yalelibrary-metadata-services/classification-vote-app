@@ -308,6 +308,10 @@
                     <span class="badge bg-white text-info me-2">⏳</span>
                     Next Pending Review
                 </a>
+                <a href="{{ url_for('main.next_my_vote', current_bib=record.bib, classification='a') }}" class="btn btn-warning">
+                    <span class="badge bg-white text-warning me-2">A</span>
+                    Next A-only Vote
+                </a>
             </div>
             <small class="text-muted d-block mt-3">
                 <strong>No Votes:</strong> Notes with no votes at all<br>

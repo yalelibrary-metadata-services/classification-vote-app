@@ -17,17 +17,17 @@ main_bp = Blueprint('main', __name__)
 @login_required
 def index():
     """Display all records"""
-    records = Record.query.order_by(Record.bib_id).all()
+    from sqlalchemy import func
+    rows = db.session.query(Record, func.count(Note.id).label('note_count'))\
+                     .outerjoin(Note, Note.record_id == Record.id)\
+                     .group_by(Record.id)\
+                     .order_by(Record.bib_id)\
+                     .all()
 
-    # Enhance with note counts
-    records_data = []
-    for record in records:
-        note_count = Note.query.filter_by(record_id=record.id).count()
-        records_data.append({
-            'bib': record.bib_id,
-            'title': record.title,
-            'notes': note_count
-        })
+    records_data = [
+        {'bib': record.bib_id, 'title': record.title, 'notes': note_count}
+        for record, note_count in rows
+    ]
 
     return render_template('index.html', records=records_data)
 

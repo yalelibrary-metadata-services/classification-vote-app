@@ -25,7 +25,7 @@ def pending_review():
     notes = db.session.query(Note)\
         .join(Record)\
         .filter(~user_voted)\
-        .options(joinedload(Note.record))\
+        .options(joinedload(Note.record), joinedload(Note.votes))\
         .order_by(Record.bib_id, Note.note_index)\
         .all()
 
@@ -43,7 +43,30 @@ def pending_review():
 
     records_dict = defaultdict(list)
     for note in notes:
-        distribution = calculate_vote_distribution(note.id)
+        votes = note.votes
+        if votes:
+            vote_counts = Counter(v.classification for v in votes)
+            total = len(votes)
+            probabilities = {c: count / total for c, count in vote_counts.items()}
+            sorted_cls = sorted(
+                vote_counts.items(),
+                key=lambda x: (-x[1], CLASSIFICATION_TYPES.index(x[0]) if x[0] in CLASSIFICATION_TYPES else 999)
+            )
+            consensus = sorted_cls[0][0]
+            consensus_prob = probabilities[consensus]
+            distribution = {
+                'votes': dict(vote_counts),
+                'total': total,
+                'probabilities': probabilities,
+                'consensus': consensus,
+                'consensus_probability': consensus_prob,
+                'is_contentious': total >= min_votes and consensus_prob < threshold,
+            }
+        else:
+            distribution = {
+                'votes': {}, 'total': 0, 'probabilities': {},
+                'consensus': None, 'consensus_probability': 0.0, 'is_contentious': False,
+            }
         records_dict[note.record].append({
             'text': note.text[:150] + ('...' if len(note.text) > 150 else ''),
             'text_full': note.text,
@@ -71,32 +94,66 @@ def pending_review():
 @login_required
 def contentious_records():
     """Show notes where consensus is below threshold with sufficient votes"""
+    threshold = get_contentious_threshold()
+    min_votes = get_min_votes_for_contentious()
 
-    contentious = []
-    records = Record.query.order_by(Record.bib_id).all()
+    # Load all notes that have at least min_votes votes, with votes+record eager-loaded
+    notes = db.session.query(Note)\
+        .join(Vote, Vote.note_id == Note.id)\
+        .options(joinedload(Note.record), joinedload(Note.votes))\
+        .group_by(Note.id)\
+        .having(func.count(Vote.id) >= min_votes)\
+        .order_by(Note.record_id, Note.note_index)\
+        .all()
 
-    for record in records:
-        notes = Note.query.filter_by(record_id=record.id).order_by(Note.note_index).all()
-        contentious_notes = []
+    # Note counts per record in one query
+    record_ids = list({n.record_id for n in notes})
+    note_counts = dict(
+        db.session.query(Note.record_id, func.count(Note.id))
+                  .filter(Note.record_id.in_(record_ids))
+                  .group_by(Note.record_id)
+                  .all()
+    ) if record_ids else {}
 
-        for note in notes:
-            distribution = calculate_vote_distribution(note.id)
-            if distribution['is_contentious']:
-                contentious_notes.append({
-                    'text': note.text[:150] + ('...' if len(note.text) > 150 else ''),
-                    'text_full': note.text,
-                    'index': note.note_index,
-                    'distribution': distribution
-                })
+    records_dict = defaultdict(list)
+    for note in notes:
+        votes = note.votes
+        vote_counts = Counter(v.classification for v in votes)
+        total = len(votes)
+        probabilities = {c: count / total for c, count in vote_counts.items()}
+        sorted_cls = sorted(
+            vote_counts.items(),
+            key=lambda x: (-x[1], CLASSIFICATION_TYPES.index(x[0]) if x[0] in CLASSIFICATION_TYPES else 999)
+        )
+        consensus = sorted_cls[0][0]
+        consensus_prob = probabilities[consensus]
 
-        if contentious_notes:
-            contentious.append({
-                'bib': record.bib_id,
-                'title': record.title,
-                'contentious_notes': contentious_notes,
-                'total_notes': len(notes),
-                'contentious_count': len(contentious_notes)
+        if total >= min_votes and consensus_prob < threshold:
+            distribution = {
+                'votes': dict(vote_counts),
+                'total': total,
+                'probabilities': probabilities,
+                'consensus': consensus,
+                'consensus_probability': consensus_prob,
+                'is_contentious': True,
+            }
+            records_dict[note.record].append({
+                'text': note.text[:150] + ('...' if len(note.text) > 150 else ''),
+                'text_full': note.text,
+                'index': note.note_index,
+                'distribution': distribution,
             })
+
+    contentious = [
+        {
+            'bib': record.bib_id,
+            'title': record.title,
+            'contentious_notes': contentious_notes,
+            'total_notes': note_counts.get(record.id, 0),
+            'contentious_count': len(contentious_notes),
+        }
+        for record, contentious_notes in sorted(records_dict.items(), key=lambda x: x[0].bib_id)
+    ]
 
     return render_template('contentious.html',
                            contentious_records=contentious,
@@ -113,7 +170,7 @@ def needs_review():
     notes = db.session.query(Note)\
         .join(Vote, (Vote.note_id == Note.id) & (Vote.user_id == user_id) & (Vote.needs_review == True))\
         .options(
-            joinedload('record'),
+            joinedload(Note.record),
             joinedload(Note.votes).joinedload(Vote.user),
         )\
         .order_by(Note.record_id, Note.note_index)\

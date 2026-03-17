@@ -53,6 +53,71 @@
     </div>
 </div>
 
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Records</h5>
+                <p class="display-4">{{ stats.total_records }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Notes</h5>
+                <p class="display-4">{{ stats.total_notes }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Votes</h5>
+                <p class="display-4">{{ stats.total_votes }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Avg Votes / Note</h5>
+                <p class="display-4">{{ "%.1f"|format(stats.avg_votes_per_note) }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if classification_dist %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Classification Distribution</h5>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Classification</th>
+                    <th>Votes</th>
+                    <th>Percentage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_class_votes = classification_dist | sum(attribute=1) %}
+                {% for classification, count in classification_dist %}
+                <tr>
+                    <td><span class="badge bg-primary">{{ classification.upper() }}</span></td>
+                    <td>{{ count }}</td>
+                    <td>{{ "%.1f"|format((count / total_class_votes * 100)) }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <!-- Getting Started Section -->
 <div class="card mb-4 bg-light">
     <div class="card-body text-center">

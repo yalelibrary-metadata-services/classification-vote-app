@@ -29,7 +29,31 @@ def index():
         for record, note_count in rows
     ]
 
-    return render_template('index.html', records=records_data)
+    total_records = len(rows)
+    total_notes = sum(n for _, n in rows)
+    total_votes = Vote.query.count()
+
+    notes_with_vote_counts = db.session.query(func.count(Vote.id))\
+        .join(Note)\
+        .group_by(Note.id)\
+        .all()
+    avg_votes = (sum(c for (c,) in notes_with_vote_counts) / len(notes_with_vote_counts)
+                 if notes_with_vote_counts else 0)
+
+    classification_dist = db.session.query(
+        Vote.classification,
+        func.count(Vote.id).label('count')
+    ).group_by(Vote.classification).order_by(func.count(Vote.id).desc()).all()
+
+    stats = {
+        'total_records': total_records,
+        'total_notes': total_notes,
+        'total_votes': total_votes,
+        'avg_votes_per_note': avg_votes,
+    }
+
+    return render_template('index.html', records=records_data, stats=stats,
+                           classification_dist=classification_dist)
 
 
 @main_bp.route('/record/<bib_id>')

@@ -20,6 +20,9 @@
     </h5>
     <p class="mb-0">
         These records contain notes where you haven't submitted your classification vote yet.
+        {% if truncated %}
+            Showing the first 50 — use <strong>Next Unclassified</strong> on any record to work through the rest.
+        {% endif %}
     </p>
 </div>
 

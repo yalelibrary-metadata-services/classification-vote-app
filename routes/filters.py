@@ -13,17 +13,37 @@ from utils.probability import (
 filters_bp = Blueprint('filters', __name__)
 
 
+PENDING_REVIEW_LIMIT = 50
+
+
 @filters_bp.route('/pending-review')
 @login_required
 def pending_review():
-    """Show notes where current user hasn't voted yet"""
+    """Show notes where current user hasn't voted yet (capped at first 50 records)"""
     from sqlalchemy import exists, and_
     user_id = session.get('user_id')
 
     user_voted = exists().where(and_(Vote.note_id == Note.id, Vote.user_id == user_id))
 
+    # Find the first N record IDs that have unvoted notes
+    record_ids = [r for (r,) in
+        db.session.query(Note.record_id)
+                  .join(Record)
+                  .filter(~user_voted)
+                  .distinct()
+                  .order_by(Record.bib_id)
+                  .limit(PENDING_REVIEW_LIMIT)
+                  .all()
+    ]
+
+    if not record_ids:
+        return render_template('pending_review.html', pending_records=[],
+                               total_pending_records=0, truncated=False)
+
+    # Load only the unvoted notes for those records, with votes eager-loaded
     notes = db.session.query(Note)\
         .join(Record)\
+        .filter(Note.record_id.in_(record_ids))\
         .filter(~user_voted)\
         .options(joinedload(Note.record), joinedload(Note.votes))\
         .order_by(Record.bib_id, Note.note_index)\
@@ -32,14 +52,12 @@ def pending_review():
     threshold = get_contentious_threshold()
     min_votes = get_min_votes_for_contentious()
 
-    # Get note counts per record in one query
-    record_ids = list({n.record_id for n in notes})
     note_counts = dict(
         db.session.query(Note.record_id, func.count(Note.id))
                   .filter(Note.record_id.in_(record_ids))
                   .group_by(Note.record_id)
                   .all()
-    ) if record_ids else {}
+    )
 
     records_dict = defaultdict(list)
     for note in notes:
@@ -85,9 +103,17 @@ def pending_review():
         for record, pending_notes in sorted(records_dict.items(), key=lambda x: x[0].bib_id)
     ]
 
+    # Count total pending records for the truncation notice
+    total_pending = db.session.query(Note.record_id)\
+        .join(Record)\
+        .filter(~user_voted)\
+        .distinct()\
+        .count()
+
     return render_template('pending_review.html',
                            pending_records=pending_records,
-                           total_pending_records=len(pending_records))
+                           total_pending_records=total_pending,
+                           truncated=total_pending > PENDING_REVIEW_LIMIT)
 
 
 @filters_bp.route('/contentious')

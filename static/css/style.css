@@ -207,3 +207,50 @@
     font-size: 1rem;
     padding: 0.375rem 0.75rem;
 }
+
+/* Custom purple badge for AOW classification */
+.badge.bg-purple {
+    background-color: #6f42c1 !important;
+    color: white;
+}
+
+.btn-purple {
+    background-color: #6f42c1;
+    border-color: #6f42c1;
+    color: white;
+}
+
+.btn-outline-purple {
+    border-color: #6f42c1;
+    color: #6f42c1;
+}
+
+.btn-outline-purple:hover {
+    background-color: #6f42c1;
+    color: white;
+}
+
+/* Hide voted notes toggle */
+#hideVotedNotesToggle {
+    cursor: pointer;
+}
+
+#hideVotedNotesToggle:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+.form-check-label[for="hideVotedNotesToggle"] {
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Smooth transition for hiding notes */
+.note-card {
+    transition: opacity 0.3s ease;
+}
+
+/* Hidden notes alert styling */
+#hiddenNotesAlert {
+    border-left: 4px solid #0dcaf0;
+}

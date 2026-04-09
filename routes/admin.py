@@ -149,22 +149,41 @@ def export_xml():
     if request.method == 'POST':
         try:
             confidence = float(request.form.get('confidence_threshold', 0.60))
+            min_votes = int(request.form.get('min_votes', 1))
             include_stats = request.form.get('include_stats') == 'on'
+
+            # Get consensus filter from form (multiple checkboxes)
+            consensus_filter = request.form.getlist('consensus_types')
+            # If empty list, set to None (export all)
+            if not consensus_filter:
+                consensus_filter = None
 
             # Validate confidence
             if not 0 <= confidence <= 1:
                 flash('Confidence threshold must be between 0 and 1', 'danger')
                 return redirect(request.url)
 
+            # Validate min_votes
+            if min_votes < 0:
+                flash('Minimum votes must be at least 0', 'danger')
+                return redirect(request.url)
+
             # Generate filename with timestamp
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f'classification_export_{timestamp}.xml'
+
+            # Add consensus filter to filename if specified
+            if consensus_filter:
+                consensus_str = '_'.join(sorted(consensus_filter)).upper()
+                filename = f'classification_export_{consensus_str}_{timestamp}.xml'
+            else:
+                filename = f'classification_export_{timestamp}.xml'
+
             filepath = os.path.join(tempfile.gettempdir(), filename)
 
             # Export using xml_exporter utility
             from utils.xml_exporter import export_to_file
 
-            export_to_file(filepath, confidence, include_stats)
+            export_to_file(filepath, confidence, min_votes, include_stats, consensus_filter)
 
             # Send file
             return send_file(
@@ -178,11 +197,14 @@ def export_xml():
             flash(f'Export error: {str(e)}', 'danger')
             return redirect(request.url)
 
-    # Get current threshold for default
+    # Get current threshold and min votes for defaults
+    from utils.probability import get_min_votes_for_export
     current_threshold = get_contentious_threshold()
+    current_min_votes = get_min_votes_for_export()
 
     return render_template('admin/export.html',
-                         default_threshold=current_threshold)
+                         default_threshold=current_threshold,
+                         default_min_votes=current_min_votes)
 
 
 @admin_bp.route('/settings', methods=['GET', 'POST'])
@@ -221,3 +243,98 @@ def settings():
     return render_template('admin/settings.html',
                          contentious_threshold=current_threshold,
                          min_votes_contentious=current_min_votes)
+
+
+@admin_bp.route('/users')
+@admin_required
+def manage_users():
+    """List all users with vote counts"""
+
+    # Get all users with their vote counts
+    users_data = db.session.query(
+        User.id,
+        User.username,
+        User.is_admin,
+        User.created_at,
+        func.count(Vote.id).label('vote_count')
+    ).outerjoin(Vote).group_by(User.id).order_by(User.username).all()
+
+    users = []
+    for user_id, username, is_admin, created_at, vote_count in users_data:
+        users.append({
+            'id': user_id,
+            'username': username,
+            'is_admin': is_admin,
+            'created_at': created_at,
+            'vote_count': vote_count
+        })
+
+    return render_template('admin/users.html', users=users)
+
+
+@admin_bp.route('/users/<int:user_id>/edit', methods=['POST'])
+@admin_required
+def edit_user(user_id):
+    """Edit a user's username"""
+
+    user = User.query.get_or_404(user_id)
+    new_username = request.form.get('new_username', '').strip()
+
+    if not new_username:
+        flash('Username cannot be empty', 'danger')
+        return redirect(url_for('admin.manage_users'))
+
+    if len(new_username) > 50:
+        flash('Username must be 50 characters or less', 'danger')
+        return redirect(url_for('admin.manage_users'))
+
+    old_username = user.username
+
+    # Check if new username already exists
+    existing_user = User.query.filter_by(username=new_username).first()
+
+    if existing_user and existing_user.id != user_id:
+        # Combine users: transfer all votes from old user to existing user
+        try:
+            # Update all votes from old user to point to existing user
+            Vote.query.filter_by(user_id=user_id).update({'user_id': existing_user.id})
+
+            # Delete the old user
+            db.session.delete(user)
+            db.session.commit()
+
+            flash(f'Successfully merged user "{old_username}" into "{new_username}". All votes have been transferred.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error merging users: {str(e)}', 'danger')
+    else:
+        # Simply update the username
+        try:
+            user.username = new_username
+            db.session.commit()
+            flash(f'Successfully renamed user from "{old_username}" to "{new_username}"', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating username: {str(e)}', 'danger')
+
+    return redirect(url_for('admin.manage_users'))
+
+
+@admin_bp.route('/users/<int:user_id>/reset-password', methods=['POST'])
+@admin_required
+def reset_user_password(user_id):
+    """Reset a user's password to NULL so they can set a new one on next login"""
+
+    user = User.query.get_or_404(user_id)
+    username = user.username
+
+    try:
+        # Set password_hash to NULL
+        user.password_hash = None
+        db.session.commit()
+        flash(f'Password reset for user "{username}". They will be prompted to set a new password on next login.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error resetting password: {str(e)}', 'danger')
+
+    return redirect(url_for('admin.manage_users'))

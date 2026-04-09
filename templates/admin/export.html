@@ -40,6 +40,80 @@
                     </div>
 
                     <div class="mb-3">
+                        <label for="min_votes" class="form-label">
+                            Minimum Votes Required: <span id="min_votes_display">{{ default_min_votes }}</span>
+                        </label>
+                        <input type="range"
+                               class="form-range"
+                               id="min_votes"
+                               name="min_votes"
+                               min="0"
+                               max="10"
+                               step="1"
+                               value="{{ default_min_votes }}"
+                               oninput="document.getElementById('min_votes_display').textContent = this.value">
+                        <div class="form-text">
+                            Only export notes that have at least this many votes.
+                            Higher values ensure more consensus but may exclude notes with few votes.
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <strong>Filter by Consensus Type</strong>
+                        </label>
+                        <div class="form-text mb-2">
+                            Select which consensus types to include. Leave all unchecked to export all types.
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="consensus_o" name="consensus_types" value="o">
+                                    <label class="form-check-label" for="consensus_o">
+                                        <span class="badge bg-warning">O</span> Object only
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="consensus_w" name="consensus_types" value="w">
+                                    <label class="form-check-label" for="consensus_w">
+                                        <span class="badge bg-info">W</span> Work only
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="consensus_ow" name="consensus_types" value="ow">
+                                    <label class="form-check-label" for="consensus_ow">
+                                        <span class="badge bg-secondary">OW</span> Object/Work
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="consensus_ao" name="consensus_types" value="ao">
+                                    <label class="form-check-label" for="consensus_ao">
+                                        <span class="badge bg-primary">AO</span> Administrative/Object
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="consensus_aw" name="consensus_types" value="aw">
+                                    <label class="form-check-label" for="consensus_aw">
+                                        <span class="badge bg-dark">AW</span> Administrative/Work
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="consensus_aow" name="consensus_types" value="aow">
+                                    <label class="form-check-label" for="consensus_aow">
+                                        <span class="badge bg-purple">AOW</span> Administrative/Object/Work
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllConsensus">Select All</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllConsensus">Deselect All</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
                         <div class="form-check">
                             <input class="form-check-input"
                                    type="checkbox"
@@ -85,13 +159,22 @@
                 <ul class="small">
                     <li><strong>Model Training:</strong> Export high-confidence notes (≥80%) for training ML models</li>
                     <li><strong>Quality Review:</strong> Export low-confidence notes (50-70%) for manual review</li>
+                    <li><strong>Type-Specific:</strong> Export only AW or AOW notes for administrative analysis</li>
                     <li><strong>Backup:</strong> Export all classified data (0%) for archival</li>
+                </ul>
+
+                <h6 class="mt-3">Filters:</h6>
+                <ul class="small">
+                    <li><strong>Confidence:</strong> Minimum consensus probability (0-100%)</li>
+                    <li><strong>Min Votes:</strong> Minimum number of votes required</li>
+                    <li><strong>Consensus Type:</strong> Include only specific classifications (O, W, OW, AO, AW, AOW, ?)</li>
+                    <li>All filters are AND conditions</li>
                 </ul>
 
                 <h6 class="mt-3">Notes:</h6>
                 <ul class="small">
-                    <li>Notes without votes are never included</li>
-                    <li>Filename includes timestamp</li>
+                    <li>Leave consensus types unchecked to export all types</li>
+                    <li>Filename includes consensus filter and timestamp</li>
                     <li>Original database is not modified</li>
                     <li>Export can be re-run anytime</li>
                 </ul>
@@ -99,4 +182,19 @@
         </div>
     </div>
 </div>
+
+<script>
+// Select/Deselect all consensus types
+document.getElementById('selectAllConsensus').addEventListener('click', function() {
+    document.querySelectorAll('input[name="consensus_types"]').forEach(cb => {
+        cb.checked = true;
+    });
+});
+
+document.getElementById('deselectAllConsensus').addEventListener('click', function() {
+    document.querySelectorAll('input[name="consensus_types"]').forEach(cb => {
+        cb.checked = false;
+    });
+});
+</script>
 {% endblock %}

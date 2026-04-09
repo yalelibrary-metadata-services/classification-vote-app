@@ -9,6 +9,10 @@
         <p class="text-muted">System statistics and management tools</p>
     </div>
     <div class="col-auto">
+        <a href="{{ url_for('admin.manage_users') }}" class="btn btn-info">
+            <span class="badge bg-light text-info me-1">👥</span>
+            Manage Users
+        </a>
         <a href="{{ url_for('admin.upload_xml') }}" class="btn btn-primary">
             <span class="badge bg-light text-primary me-1">⬆</span>
             Upload XML

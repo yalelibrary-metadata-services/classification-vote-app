@@ -13,9 +13,119 @@
             <span class="badge bg-white text-warning me-2">○</span>
             Start with Unclassified
         </a>
-        <a href="{{ url_for('filters.unknown_records') }}" class="btn btn-outline-danger">
-            <span class="badge bg-danger me-2">?</span>
-            View Unknown Classifications
+    </div>
+</div>
+
+<!-- Classification Types Legend -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Classification Types</h5>
+        <p class="text-muted mb-3">
+            <small>Select checkboxes for O (Object) and/or W (Work), optionally add A (Administrative)</small>
+        </p>
+        <div class="row">
+            <div class="col-md-6">
+                <p class="mb-2">
+                    <span class="badge bg-warning">O</span> <strong>Object</strong> - Physical description of the manuscript
+                </p>
+                <p class="mb-2">
+                    <span class="badge bg-info">W</span> <strong>Work</strong> - Content related to the work itself
+                </p>
+                <p class="mb-2">
+                    <span class="badge bg-success">A</span> <strong>Administrative</strong> - Cataloging or processing information (optional)
+                </p>
+                <p class="mb-2">
+                    <span class="badge bg-secondary">OW</span> <strong>Object/Work</strong> - Both O and W selected
+                </p>
+            </div>
+            <div class="col-md-6">
+                <p class="mb-2">
+                    <span class="badge bg-primary">AO</span> <strong>Administrative/Object</strong> - A and O selected
+                </p>
+                <p class="mb-2">
+                    <span class="badge bg-dark">AW</span> <strong>Administrative/Work</strong> - A and W selected
+                </p>
+                <p class="mb-2">
+                    <span class="badge bg-purple">AOW</span> <strong>Administrative/Object/Work</strong> - All three selected
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Records</h5>
+                <p class="display-4">{{ stats.total_records }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Notes</h5>
+                <p class="display-4">{{ stats.total_notes }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Total Votes</h5>
+                <p class="display-4">{{ stats.total_votes }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-muted">Avg Votes / Note</h5>
+                <p class="display-4">{{ "%.1f"|format(stats.avg_votes_per_note) }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if classification_dist %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">Classification Distribution</h5>
+    </div>
+    <div class="card-body">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Classification</th>
+                    <th>Votes</th>
+                    <th>Percentage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_class_votes = classification_dist | sum(attribute=1) %}
+                {% for classification, count in classification_dist %}
+                <tr>
+                    <td><span class="badge bg-primary">{{ classification.upper() }}</span></td>
+                    <td>{{ count }}</td>
+                    <td>{{ "%.1f"|format((count / total_class_votes * 100)) }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Getting Started Section -->
+<div class="card mb-4 bg-light">
+    <div class="card-body text-center">
+        <h5 class="card-title">Ready to Start Classifying?</h5>
+        <p class="mb-3">Click the button below to jump to the first record with notes that need your vote.</p>
+        <a href="{{ url_for('main.start_unclassified') }}" class="btn btn-warning btn-lg">
+            <span class="badge bg-white text-warning me-2">○</span>
+            Start with Unclassified
         </a>
     </div>
 </div>

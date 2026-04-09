@@ -26,6 +26,15 @@ def create_app(config_class=Config):
         # Initialize database tables if they don't exist
         db.create_all()
 
+        # Build similarity index for fast similar notes search
+        from utils.similarity import rebuild_similarity_index
+        print("Building similarity index...")
+        stats = rebuild_similarity_index()
+        print(f"✓ Similarity index built: {stats['indexed_notes']} notes, "
+              f"{stats['unique_tokens']} unique tokens, "
+              f"{stats['rebuild_time_seconds']}s, "
+              f"{stats['cache_size_mb']} MB")
+
     # Register blueprints
     from auth import auth_bp
     from routes.main import main_bp
@@ -38,6 +47,15 @@ def create_app(config_class=Config):
     app.register_blueprint(voting_bp)
     app.register_blueprint(filters_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
+
+    @app.context_processor
+    def inject_needs_review_count():
+        from flask import session
+        from models import Vote
+        if 'user_id' in session:
+            count = Vote.query.filter_by(user_id=session['user_id'], needs_review=True).count()
+            return {'needs_review_count': count}
+        return {'needs_review_count': 0}
 
     return app
 

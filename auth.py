@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash
 from models import db, User
 from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -38,9 +39,14 @@ def login():
 
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
+        password = request.form.get('password', '')
 
         if not username:
             flash('Username is required.', 'danger')
+            return render_template('login.html')
+
+        if not password:
+            flash('Password is required.', 'danger')
             return render_template('login.html')
 
         if len(username) > 50:
@@ -54,7 +60,9 @@ def login():
         is_admin_username = username.lower() == 'admin'
 
         if not user:
-            user = User(username=username, is_admin=is_admin_username)
+            # New user - create account with hashed password
+            password_hash = generate_password_hash(password)
+            user = User(username=username, password_hash=password_hash, is_admin=is_admin_username)
             db.session.add(user)
             db.session.commit()
             if is_admin_username:
@@ -62,13 +70,26 @@ def login():
             else:
                 flash(f'Welcome, {username}! Your account has been created.', 'success')
         else:
-            # Update existing Admin user to have admin privileges if not already set
-            if is_admin_username and not user.is_admin:
-                user.is_admin = True
+            # Existing user - validate password
+            if user.password_hash is None:
+                # Legacy user without password - set their password now
+                user.password_hash = generate_password_hash(password)
+                if is_admin_username and not user.is_admin:
+                    user.is_admin = True
                 db.session.commit()
-                flash(f'Welcome back, {username}! Admin privileges have been granted.', 'success')
+                flash(f'Welcome back, {username}! Your password has been set.', 'success')
+            elif check_password_hash(user.password_hash, password):
+                # Password matches
+                if is_admin_username and not user.is_admin:
+                    user.is_admin = True
+                    db.session.commit()
+                    flash(f'Welcome back, {username}! Admin privileges have been granted.', 'success')
+                else:
+                    flash(f'Welcome back, {username}!', 'success')
             else:
-                flash(f'Welcome back, {username}!', 'success')
+                # Password doesn't match
+                flash('Incorrect password.', 'danger')
+                return render_template('login.html')
 
         # Set session
         session['username'] = username
